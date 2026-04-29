@@ -530,9 +530,15 @@ class WhatsAppSession {
 
     // ==================== HELPERS ====================
 
-    formatPhoneNumber(phone, isGroup = false) {
+    formatPhoneNumber(phone, isGroup = null) {
         if (!phone || phone.trim() === '') {
             throw new Error('Phone number cannot be empty');
+        }
+        if (phone.includes('@')) {
+            if (phone.includes('@g.us')) {
+                return phone.replace('@c.us', '@g.us');
+            }
+            return phone;
         }
         let formatted = phone.replace(/\D/g, '');
         if (formatted.startsWith('0')) {
@@ -541,10 +547,10 @@ class WhatsAppSession {
         if (!formatted) {
             throw new Error('Invalid phone number: no digits found');
         }
-        if (!formatted.includes('@')) {
-            formatted = formatted + (isGroup ? '@g.us' : '@c.us');
+        if (isGroup === null) {
+            isGroup = this.isGroupId(phone);
         }
-        return formatted;
+        return isGroup ? `${formatted}@g.us` : `${formatted}@c.us`;
     }
 
     formatJid(id, isGroup = false) {
@@ -558,11 +564,14 @@ class WhatsAppSession {
         return isGroup ? `${formatted}@g.us` : `${formatted}@c.us`;
     }
 
-    formatChatId(chatId, isGroup = false) {
+    formatChatId(chatId, isGroup = null) {
         if (!chatId || chatId.trim() === '') {
             throw new Error('Chat ID cannot be empty');
         }
         if (chatId.includes('@')) {
+            if (chatId.includes('@g.us')) {
+                return chatId.replace('@c.us', '@g.us');
+            }
             return chatId;
         }
 
@@ -572,6 +581,9 @@ class WhatsAppSession {
         }
         if (!formatted) {
             throw new Error('Invalid Chat ID: no digits found');
+        }
+        if (isGroup === null) {
+            isGroup = this.isGroupId(chatId);
         }
         return isGroup ? `${formatted}@g.us` : `${formatted}@c.us`;
     }
