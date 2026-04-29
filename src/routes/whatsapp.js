@@ -1487,4 +1487,147 @@ router.post('/groups/revoke-invite', checkSession, async (req, res) => {
     }
 });
 
+// ==================== LABELS ====================
+
+// Get all labels
+router.post('/labels', checkSession, async (req, res) => {
+    try {
+        const result = await req.session.getLabels();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// Create a label
+router.post('/labels/create', checkSession, async (req, res) => {
+    try {
+        const { name, colorId = 0, labelId = null } = req.body;
+        
+        if (!name && !labelId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Label name is required for new label'
+            });
+        }
+
+        const result = await req.session.createLabel(name, colorId, labelId);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// Delete a label
+router.post('/labels/delete', checkSession, async (req, res) => {
+    try {
+        const { labelId } = req.body;
+        
+        if (!labelId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Label ID is required'
+            });
+        }
+
+        const result = await req.session.deleteLabel(labelId);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// Add label to chat
+router.post('/labels/chat/add', checkSession, async (req, res) => {
+    try {
+        const { chatId, labelId } = req.body;
+
+        if (!chatId || !labelId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Chat ID and label ID are required'
+            });
+        }
+
+        if (chatId.includes('@g.us') || chatId.match(/^\d+-\d+@g\.us$/)) {
+            chatId = chatId.replace('@g.us', '') + '@g.us';
+        } else if (chatId.includes('@c.us')) {
+            chatId = chatId.replace('@c.us', '') + '@c.us';
+        }
+
+        const result = await req.session.addChatLabel(chatId, labelId);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// Remove label from chat
+router.post('/labels/chat/remove', checkSession, async (req, res) => {
+    try {
+        const { chatId, labelId } = req.body;
+
+        if (!chatId || !labelId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Chat ID and label ID are required'
+            });
+        }
+
+        if (chatId.includes('@g.us') || chatId.match(/^\d+-\d+@g\.us$/)) {
+            chatId = chatId.replace('@g.us', '') + '@g.us';
+        } else if (chatId.includes('@c.us')) {
+            chatId = chatId.replace('@c.us', '') + '@c.us';
+        }
+
+        const result = await req.session.removeChatLabel(chatId, labelId);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// Get labels for a chat
+router.post('/labels/chat', checkSession, async (req, res) => {
+    try {
+        const { chatId } = req.body;
+
+        if (!chatId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Chat ID is required'
+            });
+        }
+
+        if (chatId.includes('@g.us') || chatId.match(/^\d+-\d+@g\.us$/)) {
+            chatId = chatId.replace('@g.us', '') + '@g.us';
+        } else if (chatId.includes('@c.us')) {
+            chatId = chatId.replace('@c.us', '') + '@c.us';
+        }
+
+        const result = await req.session.getChatLabels(chatId);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 module.exports = router;

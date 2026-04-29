@@ -207,7 +207,7 @@ class BaileysStore {
 
     this.chatsOverview.set(chatId, {
       id: chatId,
-      name: groupMeta?.subject || contact?.name || contact?.notify || chat?.name || chatId.replace('@s.whatsapp.net', '').replace('@g.us', ''),
+      name: groupMeta?.subject || contact?.name || contact?.notify || chat?.name || chatId.replace('@c.us', '').replace('@g.us', ''),
       isGroup,
       unreadCount: chat?.unreadCount || 0,
       lastMessage: {
@@ -332,10 +332,10 @@ class BaileysStore {
     const { limit = 100, offset = 0, search = '' } = options;
     
     let contacts = Array.from(this.contacts.values())
-      .filter(c => c.id.endsWith('@s.whatsapp.net'))
+      .filter(c => c.id.endsWith('@c.us'))
       .map(c => ({
         id: c.id,
-        name: c.name || c.notify || c.id.replace('@s.whatsapp.net', ''),
+        name: c.name || c.notify || c.id.replace('@c.us', ''),
         notify: c.notify,
         verifiedName: c.verifiedName,
         profilePicture: this.profilePictures.get(c.id) || null
