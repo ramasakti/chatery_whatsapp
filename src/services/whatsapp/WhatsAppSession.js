@@ -1266,7 +1266,7 @@ class WhatsAppSession {
                 return { success: false, message: 'Store not initialized' };
             }
 
-            // Use fast method from BaileysStore
+            // Get pre-sorted overview from cache (fast O(1) lookup + slice)
             const result = this.store.getChatsOverviewFast({ limit: 1000, offset: 0 });
             let chats = result.data;
 
@@ -1277,38 +1277,11 @@ class WhatsAppSession {
                 chats = chats.filter(c => !c.isGroup);
             }
 
-            // Fetch missing profile pictures in parallel (batch)
-            const chatsNeedingPics = chats.filter(c => !c.profilePicture).slice(0, 20);
-            if (chatsNeedingPics.length > 0) {
-                const picPromises = chatsNeedingPics.map(async (chat) => {
-                    try {
-                        const url = await this.socket.profilePictureUrl(chat.id, 'image');
-                        this.store.setProfilePicture(chat.id, url);
-                        chat.profilePicture = url;
-                    } catch (e) {
-                        // No profile picture available
-                    }
-                });
-                await Promise.all(picPromises);
-            }
-
             // Apply pagination
             const total = chats.length;
             const paginatedChats = chats.slice(offset, offset + limit);
 
-            // Resolve unmapped LIDs in parallel from the server
-            const resolvePromises = paginatedChats.map(async (chat) => {
-                if (chat.isGroup) return;
-                if (chat.id && chat.id.endsWith('@lid')) {
-                    const existing = this.store.resolveIdentity(chat.id);
-                    if (!existing) {
-                        await this.resolveLidFromServer(chat.id);
-                    }
-                }
-            });
-            await Promise.all(resolvePromises);
-
-            // Transform to expected format
+            // Transform to expected format (pure in-memory, no network calls)
             const formattedChats = paginatedChats.map(chat => {
                 let resolvedId = chat.id;
                 let resolvedPhone = chat.isGroup ? null : chat.id.split('@')[0];
@@ -1321,10 +1294,9 @@ class WhatsAppSession {
                         resolvedPhone = resolved.pn || resolvedPhone;
                     }
 
-                    // Fix name if it's still LID-based (ends with @lid, or matches the LID number)
+                    // Fix name if it's still LID-based
                     const lidNumber = chat.id.endsWith('@lid') ? chat.id.split('@')[0] : null;
                     if (resolvedName && (resolvedName.endsWith('@lid') || resolvedName === lidNumber)) {
-                        // Try to get a proper name from resolved contact
                         const contact = this.store.getContact(resolvedId);
                         resolvedName = contact?.name || contact?.notify || resolvedPhone || resolvedId.split('@')[0];
                     }
@@ -1343,6 +1315,9 @@ class WhatsAppSession {
                 };
             });
 
+            // Fetch missing profile pictures in background (non-blocking)
+            this._fetchMissingProfilePictures(paginatedChats);
+
             return {
                 success: true,
                 data: {
@@ -1359,9 +1334,28 @@ class WhatsAppSession {
     }
 
     /**
+     * Fetch missing profile pictures in background (fire-and-forget, non-blocking)
+     */
+    _fetchMissingProfilePictures(items) {
+        if (!this.socket || !this.store) return;
+        const needPics = items.filter(c => !c.profilePicture).slice(0, 10);
+        if (needPics.length === 0) return;
+
+        // Fire and forget — don't await
+        Promise.all(needPics.map(async (item) => {
+            try {
+                const url = await this.socket.profilePictureUrl(item.id, 'image');
+                this.store.setProfilePicture(item.id, url);
+            } catch (e) {
+                // No profile picture available
+            }
+        })).catch(() => {});
+    }
+
+    /**
      * Get contacts list - OPTIMIZED VERSION using cache
      */
-    async getContacts(limit = 100, offset = 0, search = '') {
+    async getContacts(limit = 50, offset = 0, search = '') {
         try {
             if (!this.socket || this.connectionStatus !== 'connected') {
                 return { success: false, message: 'Session not connected' };
@@ -1379,21 +1373,6 @@ class WhatsAppSession {
             const total = contacts.length;
             const paginatedContacts = contacts.slice(offset, offset + limit);
 
-            // Fetch missing profile pictures in parallel (batch of 20 max)
-            const contactsNeedingPics = paginatedContacts.filter(c => !c.profilePicture).slice(0, 20);
-            if (contactsNeedingPics.length > 0) {
-                const picPromises = contactsNeedingPics.map(async (contact) => {
-                    try {
-                        const url = await this.socket.profilePictureUrl(contact.id, 'image');
-                        this.store.setProfilePicture(contact.id, url);
-                        contact.profilePicture = url;
-                    } catch (e) {
-                        // No profile picture available
-                    }
-                });
-                await Promise.all(picPromises);
-            }
-
             // Transform to expected format
             const formattedContacts = paginatedContacts.map(c => ({
                 id: c.id,
@@ -1403,6 +1382,9 @@ class WhatsAppSession {
                 pushName: c.notify || null,
                 profilePicture: c.profilePicture
             }));
+
+            // Fetch missing profile pictures in background (non-blocking)
+            this._fetchMissingProfilePictures(paginatedContacts);
 
             return {
                 success: true,

@@ -20,6 +20,10 @@ class BaileysStore {
     this.profilePictures = new Map(); // Cached profile pictures
     this.contactsCache = new Map(); // Cached contacts with profile pics
     
+    // Sorted cache arrays (avoid re-sorting on every request)
+    this._sortedOverviewCache = null; // Cached sorted overview array
+    this._sortedContactsCache = null; // Cached sorted contacts array
+    
     // Media files tracking: messageId -> filePath
     this.mediaFiles = new Map();
     
@@ -402,6 +406,9 @@ class BaileysStore {
       profilePicture: this.profilePictures.get(chatId) || null,
       conversationTimestamp: chat?.conversationTimestamp || latestMessage?.messageTimestamp
     });
+
+    // Invalidate sorted cache since overview data changed
+    this._sortedOverviewCache = null;
   }
 
   /**
@@ -438,6 +445,7 @@ class BaileysStore {
    */
   _invalidateOverviewCache() {
     this.lastOverviewUpdate = 0;
+    this._sortedOverviewCache = null;
   }
 
   /**
@@ -446,6 +454,7 @@ class BaileysStore {
   _invalidateContactsCache() {
     this.lastContactsUpdate = 0;
     this.contactsCache.clear();
+    this._sortedContactsCache = null;
   }
 
   /**
@@ -478,20 +487,22 @@ class BaileysStore {
       this._rebuildOverviewCache();
     }
     
-    // Convert to array and sort by timestamp
-    let overview = Array.from(this.chatsOverview.values());
-    overview.sort((a, b) => {
-      const timeA = a.conversationTimestamp || a.lastMessage?.timestamp || 0;
-      const timeB = b.conversationTimestamp || b.lastMessage?.timestamp || 0;
-      return timeB - timeA;
-    });
+    // Use cached sorted array if available, otherwise sort and cache
+    if (!this._sortedOverviewCache) {
+      this._sortedOverviewCache = Array.from(this.chatsOverview.values());
+      this._sortedOverviewCache.sort((a, b) => {
+        const timeA = a.conversationTimestamp || a.lastMessage?.timestamp || 0;
+        const timeB = b.conversationTimestamp || b.lastMessage?.timestamp || 0;
+        return timeB - timeA;
+      });
+    }
     
-    // Apply pagination
+    // Apply pagination directly on cached sorted array
     return {
-      total: overview.length,
+      total: this._sortedOverviewCache.length,
       offset,
       limit,
-      data: overview.slice(offset, offset + limit)
+      data: this._sortedOverviewCache.slice(offset, offset + limit)
     };
   }
 
