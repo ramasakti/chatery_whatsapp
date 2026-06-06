@@ -1,18 +1,18 @@
 # Build stage
-FROM node:20-alpine AS builder
-
+FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package*.json bun.lock* ./
 
-# Install build dependencies for native modules and dependencies
-# libc6-compat helps with compatibility for OpenSSL/Network libs on Alpine
+# Install build dependencies for native modules
 RUN apk add --no-cache libc6-compat
-RUN npm ci --only=production
+
+# Install dependencies with bun
+RUN bun install --frozen-lockfile --production
 
 # Production stage
-FROM node:20-alpine
+FROM oven/bun:1-alpine
 
 # Add labels
 LABEL maintainer="Fajri Rinaldi Chan <fajri@gariskode.com>"
@@ -46,7 +46,7 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
-# Start the application with the legacy OpenSSL provider to fix EPROTO/SSL Alert 0
-CMD ["node", "--openssl-legacy-provider", "index.js"]
+# Start the application
+CMD ["bun", "run", "index.js"]
