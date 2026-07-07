@@ -16,6 +16,7 @@ services:
       - DASHBOARD_USERNAME=${DASHBOARD_USERNAME:-admin}
       - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-admin123}
       - API_KEY=${API_KEY:-}
+      - TZ=Asia/Jakarta
     volumes:
       # Persist WhatsApp sessions
       - chatery_sessions:/app/sessions
