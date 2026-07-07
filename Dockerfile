@@ -6,8 +6,8 @@ WORKDIR /app
 COPY package*.json bun.lock* ./
 
 # Install build dependencies for native modules
-# RUN apk add --no-cache libc6-compat
-RUN apk update && apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat
+# RUN apk update && apk add --no-cache libc6-compat
 
 # Install dependencies with bun
 RUN bun install --frozen-lockfile --production
