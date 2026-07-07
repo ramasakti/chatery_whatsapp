@@ -1,5 +1,5 @@
 # Build stage
-FROM oven/bun:1-alpine AS builder
+FROM oven/bun:1 AS builder
 WORKDIR /app
 
 # Copy package files
@@ -13,7 +13,7 @@ RUN apk update && apk add --no-cache libc6-compat
 RUN bun install --frozen-lockfile --production
 
 # Production stage
-FROM oven/bun:1-alpine
+FROM oven/bun:1
 
 # Add labels
 LABEL maintainer="Fajri Rinaldi Chan <fajri@gariskode.com>"
